@@ -19,10 +19,10 @@ export function generateFinancialReportPDF(data: FinancialReportData): Blob {
   })
 
   // Colors from Aurelo palette
-  const primaryColor = [58, 123, 248] // #3A7BF8
-  const accentColor = [143, 230, 255] // #8FE6FF
-  const textColor = [11, 11, 15] // #0B0B0F
-  const mutedColor = [100, 116, 139] // #64748B
+  const primaryColor: [number, number, number] = [58, 123, 248] // #3A7BF8
+  const accentColor: [number, number, number] = [143, 230, 255] // #8FE6FF
+  const textColor: [number, number, number] = [11, 11, 15] // #0B0B0F
+  const mutedColor: [number, number, number] = [100, 116, 139] // #64748B
 
   // Header with gradient effect (simulated)
   doc.setFillColor(...primaryColor)

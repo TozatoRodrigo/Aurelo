@@ -146,9 +146,9 @@ export function SwapCard({ swap, onInterest }: SwapCardProps) {
                     <span className="text-xs">{swap.description}</span>
                   </div>
                 )}
-                {swap.interests_count > 0 && (
+                {(swap.interests_count || 0) > 0 && (
                   <div className="text-xs text-muted-foreground mt-1">
-                    {swap.interests_count} interesse{swap.interests_count > 1 ? 's' : ''}
+                    {swap.interests_count || 0} interesse{(swap.interests_count || 0) > 1 ? 's' : ''}
                   </div>
                 )}
               </div>

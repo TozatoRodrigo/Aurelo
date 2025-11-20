@@ -75,6 +75,18 @@ export function EditShiftDialog({ shift, onSave, children }: EditShiftDialogProp
         notes: notes.trim() || null,
         status: status,
       })
+      
+      // Criar objeto do shift atualizado para passar ao callback
+      const updatedShift: Shift = {
+        ...shift,
+        work_relation_id: relationId,
+        start_time: startDate.toISOString(),
+        end_time: endDate.toISOString(),
+        estimated_value: value ? parseFloat(value) : 0,
+        notes: notes.trim() || null,
+        status: status,
+      }
+      
       toast.success("Plantão atualizado com sucesso!")
       setOpen(false)
       onSave(updatedShift)
