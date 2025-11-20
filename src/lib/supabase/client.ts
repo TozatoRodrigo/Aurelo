@@ -22,9 +22,10 @@ if (typeof window !== 'undefined') {
       }
       
       // Verificar se é requisição do Supabase ANTES de tentar sanitizar
+      // Garantir que sempre retorne boolean
       isSupabaseRequest = requestUrl.includes('supabase.co') || 
                          requestUrl.includes('supabase') ||
-                         (supabaseUrl && requestUrl.includes(supabaseUrl))
+                         (supabaseUrl !== '' && requestUrl.includes(supabaseUrl))
     } catch (error) {
       // Se não conseguir detectar URL, usar fetch original
       return originalFetch(input, init)
