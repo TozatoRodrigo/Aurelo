@@ -1,5 +1,51 @@
 import { createBrowserClient } from '@supabase/ssr'
 
+// Helper function to sanitize header values to ISO-8859-1
+function sanitizeHeaderValue(value: string): string {
+  // Remove or encode non-ISO-8859-1 characters
+  return value
+    .split('')
+    .map(char => {
+      const code = char.charCodeAt(0)
+      // ISO-8859-1 range: 0x00-0xFF
+      if (code > 0xFF) {
+        // Encode non-ISO-8859-1 characters
+        return encodeURIComponent(char)
+      }
+      return char
+    })
+    .join('')
+}
+
+// Custom fetch that sanitizes headers
+function safeFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  if (!init || !init.headers) {
+    return fetch(input, init)
+  }
+
+  // Create a new Headers object with sanitized values
+  const sanitizedHeaders = new Headers()
+  
+  if (init.headers instanceof Headers) {
+    init.headers.forEach((value, key) => {
+      sanitizedHeaders.set(key, sanitizeHeaderValue(value))
+    })
+  } else if (Array.isArray(init.headers)) {
+    init.headers.forEach(([key, value]) => {
+      sanitizedHeaders.set(key, sanitizeHeaderValue(String(value)))
+    })
+  } else {
+    Object.entries(init.headers).forEach(([key, value]) => {
+      sanitizedHeaders.set(key, sanitizeHeaderValue(String(value)))
+    })
+  }
+
+  return fetch(input, {
+    ...init,
+    headers: sanitizedHeaders,
+  })
+}
+
 export function createClient() {
   return createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -56,6 +102,9 @@ export function createClient() {
             }
           })
         },
+      },
+      global: {
+        fetch: safeFetch,
       },
     }
   )
