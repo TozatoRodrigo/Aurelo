@@ -15,37 +15,49 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value))
+          // Atualizar cookies na requisição
+          cookiesToSet.forEach(({ name, value, options }) => {
+            request.cookies.set(name, value)
+          })
+          
+          // Criar nova resposta com cookies atualizados
           supabaseResponse = NextResponse.next({
             request,
           })
-          cookiesToSet.forEach(({ name, value, options }) =>
+          
+          // Atualizar cookies na resposta
+          cookiesToSet.forEach(({ name, value, options }) => {
             supabaseResponse.cookies.set(name, value, options)
-          )
+          })
         },
       },
     }
   )
 
-  // Aguardar um pouco para garantir que a sessão foi processada
-  await new Promise(resolve => setTimeout(resolve, 100))
-
+  // IMPORTANTE: Usar getSession() ao invés de getUser() para garantir refresh automático
+  // O getSession() automaticamente refresha tokens expirados
   const {
-    data: { user },
-  } = await supabase.auth.getUser()
+    data: { session },
+    error: sessionError
+  } = await supabase.auth.getSession()
+
+  // Log para debug (remover em produção)
+  if (sessionError) {
+    console.error('Middleware session error:', sessionError)
+  }
 
   const isAuthPage = request.nextUrl.pathname.startsWith('/login') || 
                      request.nextUrl.pathname.startsWith('/onboarding')
 
-  // Se não tem usuário e não está em página de auth, redirecionar para login
-  if (!user && !isAuthPage) {
+  // Se não tem sessão e não está em página de auth, redirecionar para login
+  if (!session && !isAuthPage) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
 
-  // Se tem usuário e está em página de auth, redirecionar para home
-  if (user && isAuthPage) {
+  // Se tem sessão e está em página de auth, redirecionar para home
+  if (session && isAuthPage) {
     const url = request.nextUrl.clone()
     url.pathname = '/'
     return NextResponse.redirect(url)
