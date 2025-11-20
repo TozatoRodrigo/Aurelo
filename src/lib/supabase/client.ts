@@ -3,6 +3,33 @@ import { createBrowserClient } from '@supabase/ssr'
 // Headers that should not be sanitized (they contain base64 or other encoded values)
 const CRITICAL_HEADERS = ['authorization', 'apikey', 'x-client-info', 'x-client-version']
 
+// Helper function to sanitize strings to ISO-8859-1
+function sanitizeToISO8859_1(str: string): string {
+  // Convert to array of characters and filter/encode
+  const result: string[] = []
+  
+  for (let i = 0; i < str.length; i++) {
+    const char = str[i]
+    const code = char.charCodeAt(0)
+    
+    // ISO-8859-1 range: 0x00-0xFF (0-255)
+    if (code <= 0xFF) {
+      result.push(char)
+    } else {
+      // Character outside ISO-8859-1, encode it
+      try {
+        const encoded = encodeURIComponent(char)
+        result.push(encoded)
+      } catch {
+        // If encoding fails, skip the character
+        continue
+      }
+    }
+  }
+  
+  return result.join('')
+}
+
 // Helper function to sanitize header values to ISO-8859-1
 function sanitizeHeaderValue(value: string, headerName: string): string {
   // Don't sanitize critical headers - they are already properly encoded
@@ -10,42 +37,53 @@ function sanitizeHeaderValue(value: string, headerName: string): string {
     return value
   }
   
-  // For other headers, remove or encode non-ISO-8859-1 characters
-  return value
-    .split('')
-    .map(char => {
-      const code = char.charCodeAt(0)
-      // ISO-8859-1 range: 0x00-0xFF
-      if (code > 0xFF) {
-        // Encode non-ISO-8859-1 characters
-        return encodeURIComponent(char)
-      }
-      return char
-    })
-    .join('')
+  return sanitizeToISO8859_1(value)
+}
+
+// Helper function to sanitize header names
+function sanitizeHeaderName(name: string): string {
+  // Header names should be ASCII, but let's be safe
+  return sanitizeToISO8859_1(name)
 }
 
 // Custom fetch that sanitizes headers
 function safeFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  if (!init || !init.headers) {
+  if (!init) {
+    return fetch(input)
+  }
+
+  // If no headers, just pass through
+  if (!init.headers) {
     return fetch(input, init)
   }
 
   // Create a new Headers object with sanitized values
   const sanitizedHeaders = new Headers()
   
-  if (init.headers instanceof Headers) {
-    init.headers.forEach((value, key) => {
-      sanitizedHeaders.set(key, sanitizeHeaderValue(value, key))
-    })
-  } else if (Array.isArray(init.headers)) {
-    init.headers.forEach(([key, value]) => {
-      sanitizedHeaders.set(key, sanitizeHeaderValue(String(value), String(key)))
-    })
-  } else {
-    Object.entries(init.headers).forEach(([key, value]) => {
-      sanitizedHeaders.set(key, sanitizeHeaderValue(String(value), key))
-    })
+  try {
+    if (init.headers instanceof Headers) {
+      init.headers.forEach((value, key) => {
+        const sanitizedKey = sanitizeHeaderName(key)
+        const sanitizedValue = sanitizeHeaderValue(value, key)
+        sanitizedHeaders.set(sanitizedKey, sanitizedValue)
+      })
+    } else if (Array.isArray(init.headers)) {
+      init.headers.forEach(([key, value]) => {
+        const sanitizedKey = sanitizeHeaderName(String(key))
+        const sanitizedValue = sanitizeHeaderValue(String(value), String(key))
+        sanitizedHeaders.set(sanitizedKey, sanitizedValue)
+      })
+    } else {
+      Object.entries(init.headers).forEach(([key, value]) => {
+        const sanitizedKey = sanitizeHeaderName(key)
+        const sanitizedValue = sanitizeHeaderValue(String(value), key)
+        sanitizedHeaders.set(sanitizedKey, sanitizedValue)
+      })
+    }
+  } catch (error) {
+    console.error('Error sanitizing headers:', error)
+    // If sanitization fails, try to use original headers
+    return fetch(input, init)
   }
 
   return fetch(input, {
