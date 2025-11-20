@@ -7,40 +7,49 @@ if (typeof window !== 'undefined') {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 
   window.fetch = ((input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-    // Detectar URL da requisição de forma mais segura
+    // Detectar URL da requisição PRIMEIRO, antes de qualquer outra operação
     let requestUrl = ''
     let isSupabaseRequest = false
     
     try {
+      // Extrair URL de forma segura
       if (typeof input === 'string') {
         requestUrl = input
       } else if (input instanceof URL) {
         requestUrl = input.href
       } else if (input && typeof input === 'object' && 'url' in input) {
-        // É um objeto Request
+        // É um objeto Request - acessar URL diretamente
         requestUrl = (input as Request).url
       }
       
-      // Verificar se é requisição do Supabase ANTES de tentar sanitizar
+      // Verificar se é requisição do Supabase ANTES de qualquer outra operação
       // Garantir que sempre retorne boolean
       isSupabaseRequest = requestUrl.includes('supabase.co') || 
                          requestUrl.includes('supabase') ||
                          (supabaseUrl !== '' && requestUrl.includes(supabaseUrl))
     } catch (error) {
-      // Se não conseguir detectar URL, usar fetch original
+      // Se não conseguir detectar URL, assumir que pode ser Supabase e usar fetch original
+      // Isso é mais seguro do que tentar sanitizar e falhar
       return originalFetch(input, init)
     }
     
-    // Se for uma requisição para o Supabase, não sanitizar headers
+    // Se for uma requisição para o Supabase, usar fetch original SEM sanitização
+    // Isso deve acontecer ANTES de qualquer tentativa de acessar headers
     if (isSupabaseRequest) {
       return originalFetch(input, init)
     }
     
-    // Se não tem init ou headers, usar fetch original
-    if (!init || !init.headers) {
+    // Se não tem init, usar fetch original
+    if (!init) {
+      return originalFetch(input, init)
+    }
+    
+    // Se não tem headers, usar fetch original
+    if (!init.headers) {
       return originalFetch(input, init)
     }
 
+    // A partir daqui, sabemos que não é Supabase e tem headers
     // Tentar sanitizar headers apenas se conseguirmos acessá-los
     // Se houver qualquer erro, usar fetch original
     try {
@@ -51,10 +60,22 @@ if (typeof window !== 'undefined') {
         hasValidHeaders = true
         try {
           // Tentar iterar sobre headers de forma segura
+          // Criar uma cópia dos headers primeiro para evitar problemas de acesso
           const headerEntries: Array<[string, string]> = []
-          init.headers.forEach((value, key) => {
-            headerEntries.push([key, value])
-          })
+          
+          // Usar try-catch dentro do forEach para capturar erros individuais
+          try {
+            init.headers.forEach((value, key) => {
+              try {
+                headerEntries.push([key, value])
+              } catch (e) {
+                // Se falhar ao acessar um header específico, ignorar
+              }
+            })
+          } catch (e) {
+            // Se falhar ao iterar headers completamente, usar fetch original
+            return originalFetch(input, init)
+          }
           
           // Agora sanitizar cada header
           headerEntries.forEach(([key, value]) => {
@@ -70,7 +91,7 @@ if (typeof window !== 'undefined') {
             }
           })
         } catch (e) {
-          // Se falhar ao iterar headers, usar fetch original
+          // Se falhar ao processar headers, usar fetch original
           return originalFetch(input, init)
         }
       } else if (Array.isArray(init.headers)) {
