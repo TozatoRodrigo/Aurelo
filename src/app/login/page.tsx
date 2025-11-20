@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,6 +17,17 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const supabase = createClient()
+
+  // Verificar se já está logado
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        router.replace("/")
+      }
+    }
+    checkSession()
+  }, [router, supabase])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -44,8 +55,12 @@ export default function LoginPage() {
 
       console.log("Login successful:", data)
       toast.success("Login realizado com sucesso!")
-      router.push("/")
-      router.refresh()
+      
+      // Aguardar um pouco para garantir que a sessão foi salva
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
+      // Forçar navegação
+      window.location.href = "/"
     } catch (error: any) {
       console.error("Login exception:", error)
       toast.error("Erro ao fazer login: " + (error.message || "Erro desconhecido"))
