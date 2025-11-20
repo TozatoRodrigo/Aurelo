@@ -1,8 +1,16 @@
 import { createBrowserClient } from '@supabase/ssr'
 
+// Headers that should not be sanitized (they contain base64 or other encoded values)
+const CRITICAL_HEADERS = ['authorization', 'apikey', 'x-client-info', 'x-client-version']
+
 // Helper function to sanitize header values to ISO-8859-1
-function sanitizeHeaderValue(value: string): string {
-  // Remove or encode non-ISO-8859-1 characters
+function sanitizeHeaderValue(value: string, headerName: string): string {
+  // Don't sanitize critical headers - they are already properly encoded
+  if (CRITICAL_HEADERS.includes(headerName.toLowerCase())) {
+    return value
+  }
+  
+  // For other headers, remove or encode non-ISO-8859-1 characters
   return value
     .split('')
     .map(char => {
@@ -28,15 +36,15 @@ function safeFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Respon
   
   if (init.headers instanceof Headers) {
     init.headers.forEach((value, key) => {
-      sanitizedHeaders.set(key, sanitizeHeaderValue(value))
+      sanitizedHeaders.set(key, sanitizeHeaderValue(value, key))
     })
   } else if (Array.isArray(init.headers)) {
     init.headers.forEach(([key, value]) => {
-      sanitizedHeaders.set(key, sanitizeHeaderValue(String(value)))
+      sanitizedHeaders.set(key, sanitizeHeaderValue(String(value), String(key)))
     })
   } else {
     Object.entries(init.headers).forEach(([key, value]) => {
-      sanitizedHeaders.set(key, sanitizeHeaderValue(String(value)))
+      sanitizedHeaders.set(key, sanitizeHeaderValue(String(value), key))
     })
   }
 
