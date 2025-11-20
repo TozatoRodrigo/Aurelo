@@ -1,0 +1,15 @@
+# Arquivos e pastas a ignorar no deploy Vercel
+node_modules
+.next
+.env.local
+.env*.local
+.DS_Store
+*.log
+coverage
+.vercel
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
