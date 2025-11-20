@@ -23,10 +23,46 @@ export default function Home() {
 
   useEffect(() => {
     const checkOnboarding = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
+      // Aguardar um pouco para garantir que a sessão foi estabelecida após login
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
+      // Tentar obter a sessão várias vezes se necessário
+      let user = null
+      let attempts = 0
+      const maxAttempts = 5
+      
+      while (!user && attempts < maxAttempts) {
+        // Primeiro verificar a sessão diretamente
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) {
+          // Se tem sessão, tentar obter o usuário
+          const { data: { user: currentUser }, error } = await supabase.auth.getUser()
+          if (currentUser && !error) {
+            user = currentUser
+            break
+          }
+        }
+        attempts++
+        if (attempts < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 300))
+        }
+      }
+      
       if (!user) {
-        router.push("/login")
-        return
+        // Última tentativa: verificar sessão e usuário novamente
+        const { data: { session: finalSession } } = await supabase.auth.getSession()
+        if (!finalSession) {
+          console.log("No session found, redirecting to login")
+          router.push("/login")
+          return
+        }
+        const { data: { user: finalUser } } = await supabase.auth.getUser()
+        if (!finalUser) {
+          console.log("No user found, redirecting to login")
+          router.push("/login")
+          return
+        }
+        user = finalUser
       }
 
       // Buscar nome do usuário
@@ -66,7 +102,7 @@ export default function Home() {
     }
 
     checkOnboarding()
-  }, [])
+  }, [router, supabase, fetchShifts])
 
   const stats = useMemo(() => {
     const totalHours = shifts.reduce((acc, shift) => {
