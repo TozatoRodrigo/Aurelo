@@ -3,9 +3,9 @@ import { createBrowserClient } from '@supabase/ssr'
 // Polyfill fetch to sanitize headers globally
 const originalFetch = window.fetch
 
-window.fetch = function(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+window.fetch = ((input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
   if (!init || !init.headers) {
-    return originalFetch.call(this, input, init)
+    return originalFetch(input, init)
   }
 
   // Create a new init object with sanitized headers
@@ -46,15 +46,15 @@ window.fetch = function(input: RequestInfo | URL, init?: RequestInit): Promise<R
         console.error('Error sanitizing headers:', error)
         // If sanitization fails, try without headers
         const { headers, ...rest } = init
-        return originalFetch.call(this, input, rest)
+        return originalFetch(input, rest)
       }
       
       return headersObj
     })(),
   }
 
-  return originalFetch.call(this, input, sanitizedInit)
-} as typeof fetch
+  return originalFetch(input, sanitizedInit)
+}) as typeof fetch
 
 export function createClient() {
   return createBrowserClient(
