@@ -85,13 +85,30 @@ Aurelo é uma aplicação web desenvolvida para profissionais da saúde (enferme
 
 ## 🚀 Como Executar
 
-### Pré-requisitos
+### 🌐 Deploy em Produção (Vercel) - Recomendado
+
+O projeto está configurado para deploy automático na Vercel!
+
+**Deploy em 5 minutos:**
+1. Acesse [vercel.com/new](https://vercel.com/new)
+2. Conecte o repositório **TozatoRodrigo/Aurelo**
+3. Adicione as variáveis de ambiente (veja [GUIA_DEPLOY_RAPIDO.md](GUIA_DEPLOY_RAPIDO.md))
+4. Clique em Deploy!
+
+**Deploy automático:** Todos os pushes para `main` fazem deploy automaticamente!
+
+📖 **Guia completo**: [DEPLOY_VERCEL.md](DEPLOY_VERCEL.md)  
+⚡ **Guia rápido**: [GUIA_DEPLOY_RAPIDO.md](GUIA_DEPLOY_RAPIDO.md)
+
+### 💻 Desenvolvimento Local
+
+#### Pré-requisitos
 - Node.js 18+
 - npm ou yarn
 - Conta Supabase
 - Chaves OpenAI (para IA e OCR)
 
-### Instalação
+#### Instalação
 
 1. Clone o repositório:
 ```bash
@@ -106,7 +123,7 @@ npm install
 
 3. Configure as variáveis de ambiente:
 ```bash
-cp .env.example .env.local
+cp env.example .env.local
 ```
 
 Edite `.env.local` com suas credenciais:
