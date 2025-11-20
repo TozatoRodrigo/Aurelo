@@ -27,6 +27,9 @@ export async function middleware(request: NextRequest) {
     }
   )
 
+  // Aguardar um pouco para garantir que a sessão foi processada
+  await new Promise(resolve => setTimeout(resolve, 100))
+
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -34,12 +37,14 @@ export async function middleware(request: NextRequest) {
   const isAuthPage = request.nextUrl.pathname.startsWith('/login') || 
                      request.nextUrl.pathname.startsWith('/onboarding')
 
+  // Se não tem usuário e não está em página de auth, redirecionar para login
   if (!user && !isAuthPage) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
 
+  // Se tem usuário e está em página de auth, redirecionar para home
   if (user && isAuthPage) {
     const url = request.nextUrl.clone()
     url.pathname = '/'

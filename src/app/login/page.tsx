@@ -54,12 +54,36 @@ export default function LoginPage() {
       }
 
       console.log("Login successful:", data)
+      
+      // Aguardar e verificar que a sessão foi salva
+      let sessionSaved = false
+      let attempts = 0
+      const maxAttempts = 10
+      
+      while (!sessionSaved && attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 200))
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) {
+          sessionSaved = true
+          console.log("Session confirmed:", session)
+          break
+        }
+        attempts++
+      }
+      
+      if (!sessionSaved) {
+        console.error("Session not saved after login")
+        toast.error("Erro ao salvar sessão. Tente novamente.")
+        setLoading(false)
+        return
+      }
+      
       toast.success("Login realizado com sucesso!")
       
-      // Aguardar um pouco para garantir que a sessão foi salva
-      await new Promise(resolve => setTimeout(resolve, 500))
+      // Aguardar um pouco mais para garantir que cookies foram salvos
+      await new Promise(resolve => setTimeout(resolve, 300))
       
-      // Forçar navegação
+      // Forçar navegação completa
       window.location.href = "/"
     } catch (error: any) {
       console.error("Login exception:", error)
