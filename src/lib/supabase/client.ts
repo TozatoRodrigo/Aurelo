@@ -7,7 +7,7 @@ if (typeof window !== 'undefined') {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 
   window.fetch = ((input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-    // Detectar URL da requisição PRIMEIRO, antes de qualquer outra operação
+    // PRIMEIRO: Detectar URL da requisição ANTES de qualquer outra operação
     let requestUrl = ''
     let isSupabaseRequest = false
     
@@ -23,116 +23,95 @@ if (typeof window !== 'undefined') {
       }
       
       // Verificar se é requisição do Supabase ANTES de qualquer outra operação
-      // Garantir que sempre retorne boolean
       isSupabaseRequest = requestUrl.includes('supabase.co') || 
                          requestUrl.includes('supabase') ||
                          (supabaseUrl !== '' && requestUrl.includes(supabaseUrl))
     } catch (error) {
-      // Se não conseguir detectar URL, assumir que pode ser Supabase e usar fetch original
-      // Isso é mais seguro do que tentar sanitizar e falhar
+      // Se não conseguir detectar URL, usar fetch original (mais seguro)
       return originalFetch(input, init)
     }
     
-    // Se for uma requisição para o Supabase, usar fetch original SEM sanitização
+    // SEGUNDO: Se for Supabase, usar fetch original IMEDIATAMENTE
     // Isso deve acontecer ANTES de qualquer tentativa de acessar headers
     if (isSupabaseRequest) {
       return originalFetch(input, init)
     }
     
-    // Se não tem init, usar fetch original
-    if (!init) {
-      return originalFetch(input, init)
-    }
-    
-    // Se não tem headers, usar fetch original
-    if (!init.headers) {
+    // TERCEIRO: Verificar se tem init e headers
+    if (!init || !init.headers) {
       return originalFetch(input, init)
     }
 
-    // A partir daqui, sabemos que não é Supabase e tem headers
-    // Tentar sanitizar headers apenas se conseguirmos acessá-los
-    // Se houver qualquer erro, usar fetch original
+    // QUARTO: Tentar sanitizar headers de forma MUITO defensiva
+    // Se houver QUALQUER erro ao acessar headers, usar fetch original
     try {
-      const headersObj: Record<string, string> = {}
-      let hasValidHeaders = false
+      // Tentar verificar se podemos acessar headers sem causar erro
+      // Se init.headers for um objeto Headers, tentar criar uma cópia segura
+      let headersObj: Record<string, string> | null = null
       
       if (init.headers instanceof Headers) {
-        hasValidHeaders = true
+        // Para Headers, tentar acessar de forma segura
         try {
-          // Tentar iterar sobre headers de forma segura
-          // Criar uma cópia dos headers primeiro para evitar problemas de acesso
-          const headerEntries: Array<[string, string]> = []
+          // Criar um novo objeto Headers para testar se podemos acessar
+          const testHeaders = new Headers(init.headers)
+          headersObj = {}
           
-          // Usar try-catch dentro do forEach para capturar erros individuais
-          try {
-            init.headers.forEach((value, key) => {
-              try {
-                headerEntries.push([key, value])
-              } catch (e) {
-                // Se falhar ao acessar um header específico, ignorar
-              }
-            })
-          } catch (e) {
-            // Se falhar ao iterar headers completamente, usar fetch original
-            return originalFetch(input, init)
-          }
-          
-          // Agora sanitizar cada header
-          headerEntries.forEach(([key, value]) => {
+          // Tentar iterar de forma segura
+          testHeaders.forEach((value, key) => {
             try {
               // Sanitize: remove non-ISO-8859-1 characters
               const sanitizedKey = Array.from(key).filter(c => c.charCodeAt(0) <= 0xFF).join('')
               const sanitizedValue = Array.from(value).filter(c => c.charCodeAt(0) <= 0xFF).join('')
               if (sanitizedKey && sanitizedValue) {
-                headersObj[sanitizedKey] = sanitizedValue
+                headersObj![sanitizedKey] = sanitizedValue
               }
             } catch (e) {
-              // Ignorar header que falhou
+              // Ignorar header individual que falhou
             }
           })
         } catch (e) {
-          // Se falhar ao processar headers, usar fetch original
+          // Se falhar ao acessar Headers, usar fetch original
           return originalFetch(input, init)
         }
       } else if (Array.isArray(init.headers)) {
-        hasValidHeaders = true
+        headersObj = {}
         init.headers.forEach(([key, value]) => {
           try {
             const sanitizedKey = Array.from(String(key)).filter(c => c.charCodeAt(0) <= 0xFF).join('')
             const sanitizedValue = Array.from(String(value)).filter(c => c.charCodeAt(0) <= 0xFF).join('')
             if (sanitizedKey && sanitizedValue) {
-              headersObj[sanitizedKey] = sanitizedValue
+              headersObj![sanitizedKey] = sanitizedValue
             }
           } catch (e) {
             // Ignorar header que falhou
           }
         })
       } else if (typeof init.headers === 'object' && init.headers !== null) {
-        hasValidHeaders = true
+        headersObj = {}
         try {
           Object.entries(init.headers).forEach(([key, value]) => {
             try {
               const sanitizedKey = Array.from(key).filter(c => c.charCodeAt(0) <= 0xFF).join('')
               const sanitizedValue = Array.from(String(value)).filter(c => c.charCodeAt(0) <= 0xFF).join('')
               if (sanitizedKey && sanitizedValue) {
-                headersObj[sanitizedKey] = sanitizedValue
+                headersObj![sanitizedKey] = sanitizedValue
               }
             } catch (e) {
               // Ignorar header que falhou
             }
           })
         } catch (e) {
-          // Se falhar ao processar headers, usar fetch original
+          // Se falhar ao processar, usar fetch original
           return originalFetch(input, init)
         }
       }
 
-      // Se não conseguiu processar headers ou não tem headers válidos, usar fetch original
-      if (!hasValidHeaders || Object.keys(headersObj).length === 0) {
+      // Se não conseguiu criar headers sanitizados, usar fetch original
+      if (!headersObj || Object.keys(headersObj).length === 0) {
         return originalFetch(input, init)
       }
 
-      // Create a new init object with sanitized headers
+      // Criar novo init com headers sanitizados
       const sanitizedInit: RequestInit = {
         ...init,
         headers: headersObj,
@@ -140,8 +119,8 @@ if (typeof window !== 'undefined') {
 
       return originalFetch(input, sanitizedInit)
     } catch (error) {
-      // Se qualquer coisa falhar, usar fetch original sem sanitização
-      // Isso é seguro porque o fetch original vai funcionar normalmente
+      // Se QUALQUER coisa falhar, usar fetch original
+      // Isso garante que nunca quebramos requisições legítimas
       return originalFetch(input, init)
     }
   }) as typeof fetch
