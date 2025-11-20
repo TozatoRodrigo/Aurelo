@@ -20,29 +20,46 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    if (!email || !password) {
+      toast.error("Preencha todos os campos")
+      return
+    }
+    
     setLoading(true)
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      console.log("Attempting login...")
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
 
       if (error) {
+        console.error("Login error:", error)
         toast.error(error.message)
+        setLoading(false)
         return
       }
 
+      console.log("Login successful:", data)
+      toast.success("Login realizado com sucesso!")
       router.push("/")
       router.refresh()
-    } catch (error) {
-      toast.error("Erro ao fazer login")
+    } catch (error: any) {
+      console.error("Login exception:", error)
+      toast.error("Erro ao fazer login: " + (error.message || "Erro desconhecido"))
     } finally {
       setLoading(false)
     }
   }
 
   const handleSignUp = async () => {
+    if (!email || !password) {
+      toast.error("Preencha todos os campos")
+      return
+    }
+    
     setLoading(true)
     try {
       const { error } = await supabase.auth.signUp({
@@ -56,8 +73,8 @@ export default function LoginPage() {
       }
 
       toast.success("Conta criada! Verifique seu email.")
-    } catch (error) {
-      toast.error("Erro ao criar conta")
+    } catch (error: any) {
+      toast.error("Erro ao criar conta: " + (error.message || "Erro desconhecido"))
     } finally {
       setLoading(false)
     }
@@ -110,7 +127,9 @@ export default function LoginPage() {
                 <Label htmlFor="email" className="pl-1 text-xs uppercase tracking-wider text-muted-foreground font-semibold">Email</Label>
                 <Input
                   id="email"
+                  name="email"
                   type="email"
+                  autoComplete="email"
                   placeholder="seu@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -127,7 +146,9 @@ export default function LoginPage() {
                 <Label htmlFor="password" className="pl-1 text-xs uppercase tracking-wider text-muted-foreground font-semibold">Senha</Label>
                 <Input
                   id="password"
+                  name="password"
                   type="password"
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
