@@ -1,58 +1,60 @@
 import { createBrowserClient } from '@supabase/ssr'
 
-// Polyfill fetch to sanitize headers globally
-const originalFetch = window.fetch
+// Polyfill fetch to sanitize headers globally (only on client side)
+if (typeof window !== 'undefined') {
+  const originalFetch = window.fetch
 
-window.fetch = ((input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-  if (!init || !init.headers) {
-    return originalFetch(input, init)
-  }
-
-  // Convert headers to a plain object, sanitizing values
-  const headersObj: Record<string, string> = {}
-  
-  try {
-    if (init.headers instanceof Headers) {
-      init.headers.forEach((value, key) => {
-        // Sanitize: remove non-ISO-8859-1 characters
-        const sanitizedKey = Array.from(key).filter(c => c.charCodeAt(0) <= 0xFF).join('')
-        const sanitizedValue = Array.from(value).filter(c => c.charCodeAt(0) <= 0xFF).join('')
-        if (sanitizedKey && sanitizedValue) {
-          headersObj[sanitizedKey] = sanitizedValue
-        }
-      })
-    } else if (Array.isArray(init.headers)) {
-      init.headers.forEach(([key, value]) => {
-        const sanitizedKey = Array.from(String(key)).filter(c => c.charCodeAt(0) <= 0xFF).join('')
-        const sanitizedValue = Array.from(String(value)).filter(c => c.charCodeAt(0) <= 0xFF).join('')
-        if (sanitizedKey && sanitizedValue) {
-          headersObj[sanitizedKey] = sanitizedValue
-        }
-      })
-    } else {
-      Object.entries(init.headers).forEach(([key, value]) => {
-        const sanitizedKey = Array.from(key).filter(c => c.charCodeAt(0) <= 0xFF).join('')
-        const sanitizedValue = Array.from(String(value)).filter(c => c.charCodeAt(0) <= 0xFF).join('')
-        if (sanitizedKey && sanitizedValue) {
-          headersObj[sanitizedKey] = sanitizedValue
-        }
-      })
+  window.fetch = ((input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    if (!init || !init.headers) {
+      return originalFetch(input, init)
     }
-  } catch (error) {
-    console.error('Error sanitizing headers:', error)
-    // If sanitization fails, try without headers
-    const { headers, ...rest } = init
-    return originalFetch(input, rest)
-  }
 
-  // Create a new init object with sanitized headers
-  const sanitizedInit: RequestInit = {
-    ...init,
-    headers: headersObj,
-  }
+    // Convert headers to a plain object, sanitizing values
+    const headersObj: Record<string, string> = {}
+    
+    try {
+      if (init.headers instanceof Headers) {
+        init.headers.forEach((value, key) => {
+          // Sanitize: remove non-ISO-8859-1 characters
+          const sanitizedKey = Array.from(key).filter(c => c.charCodeAt(0) <= 0xFF).join('')
+          const sanitizedValue = Array.from(value).filter(c => c.charCodeAt(0) <= 0xFF).join('')
+          if (sanitizedKey && sanitizedValue) {
+            headersObj[sanitizedKey] = sanitizedValue
+          }
+        })
+      } else if (Array.isArray(init.headers)) {
+        init.headers.forEach(([key, value]) => {
+          const sanitizedKey = Array.from(String(key)).filter(c => c.charCodeAt(0) <= 0xFF).join('')
+          const sanitizedValue = Array.from(String(value)).filter(c => c.charCodeAt(0) <= 0xFF).join('')
+          if (sanitizedKey && sanitizedValue) {
+            headersObj[sanitizedKey] = sanitizedValue
+          }
+        })
+      } else {
+        Object.entries(init.headers).forEach(([key, value]) => {
+          const sanitizedKey = Array.from(key).filter(c => c.charCodeAt(0) <= 0xFF).join('')
+          const sanitizedValue = Array.from(String(value)).filter(c => c.charCodeAt(0) <= 0xFF).join('')
+          if (sanitizedKey && sanitizedValue) {
+            headersObj[sanitizedKey] = sanitizedValue
+          }
+        })
+      }
+    } catch (error) {
+      console.error('Error sanitizing headers:', error)
+      // If sanitization fails, try without headers
+      const { headers, ...rest } = init
+      return originalFetch(input, rest)
+    }
 
-  return originalFetch(input, sanitizedInit)
-}) as typeof fetch
+    // Create a new init object with sanitized headers
+    const sanitizedInit: RequestInit = {
+      ...init,
+      headers: headersObj,
+    }
+
+    return originalFetch(input, sanitizedInit)
+  }) as typeof fetch
+}
 
 export function createClient() {
   return createBrowserClient(
@@ -61,6 +63,8 @@ export function createClient() {
     {
       cookies: {
         getAll() {
+          if (typeof document === 'undefined') return []
+          
           try {
             const cookies = document.cookie.split(';')
             const validCookies: Array<{ name: string; value: string }> = []
@@ -106,6 +110,8 @@ export function createClient() {
           }
         },
         setAll(cookiesToSet) {
+          if (typeof document === 'undefined') return
+          
           for (const { name, value, options } of cookiesToSet) {
             try {
               // Clean to ISO-8859-1
