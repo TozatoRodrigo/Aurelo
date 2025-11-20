@@ -9,39 +9,51 @@ export function createClient() {
         getAll() {
           return document.cookie.split(';').map(cookie => {
             const [name, ...rest] = cookie.trim().split('=')
-            return {
-              name: decodeURIComponent(name),
-              value: decodeURIComponent(rest.join('='))
+            try {
+              return {
+                name: decodeURIComponent(name),
+                value: decodeURIComponent(rest.join('='))
+              }
+            } catch {
+              // If decoding fails, return as-is
+              return {
+                name: name,
+                value: rest.join('=')
+              }
             }
           }).filter(cookie => cookie.name && cookie.value)
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
-            // Encode cookie name and value to ensure ISO-8859-1 compatibility
-            const encodedName = encodeURIComponent(name)
-            const encodedValue = encodeURIComponent(value)
-            
-            let cookieString = `${encodedName}=${encodedValue}`
-            
-            if (options) {
-              if (options.maxAge) {
-                cookieString += `; Max-Age=${options.maxAge}`
+            try {
+              // Encode cookie name and value to ensure ISO-8859-1 compatibility
+              const encodedName = encodeURIComponent(name)
+              const encodedValue = encodeURIComponent(String(value))
+              
+              let cookieString = `${encodedName}=${encodedValue}`
+              
+              if (options) {
+                if (options.maxAge) {
+                  cookieString += `; Max-Age=${options.maxAge}`
+                }
+                if (options.domain) {
+                  cookieString += `; Domain=${options.domain}`
+                }
+                if (options.path) {
+                  cookieString += `; Path=${options.path}`
+                }
+                if (options.sameSite) {
+                  cookieString += `; SameSite=${options.sameSite}`
+                }
+                if (options.secure) {
+                  cookieString += `; Secure`
+                }
               }
-              if (options.domain) {
-                cookieString += `; Domain=${options.domain}`
-              }
-              if (options.path) {
-                cookieString += `; Path=${options.path}`
-              }
-              if (options.sameSite) {
-                cookieString += `; SameSite=${options.sameSite}`
-              }
-              if (options.secure) {
-                cookieString += `; Secure`
-              }
+              
+              document.cookie = cookieString
+            } catch (error) {
+              console.error('Error setting cookie:', error)
             }
-            
-            document.cookie = cookieString
           })
         },
       },
